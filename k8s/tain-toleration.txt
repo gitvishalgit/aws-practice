@@ -1,0 +1,5 @@
+kubectl taint node  worker-1 gpu=true:NoSchedule  (apply tain to node)
+
+kubectl describe node worker-1 | grep Taint (to see applied taint with key=value pair)
+
+kubectl taint node worker-1 gpu=true:NoSchedule-   ### to untaint (Delete taint from node) 

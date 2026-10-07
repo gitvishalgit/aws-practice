@@ -1,0 +1,16 @@
+pipeline {
+  agent any
+  environment {
+    KUBECONFIG = '/var/lib/jenkins/.kube/config'
+  }
+  stages {
+    stage('Use AWS Credentials') {
+      steps {
+          withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-cred', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          sh "aws sts get-caller-identity"
+          sh "kubectl get nodes"
+            }
+      }
+    }
+}
+}

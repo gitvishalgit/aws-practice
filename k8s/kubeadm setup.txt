@@ -1,0 +1,85 @@
+sudo hostnamectl set-hostname master
+sudo hostnamectl set-hostname worker-1
+sudo hostnamectl set-hostname worker-2
+
+sudo swapoff -a  # run cmd on each vm 
+
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.ipv4.ip_forward = 1
+EOF
+
+sudo modprobe overlay
+sudo modprobe br_netfilter
+sudo sysctl --system
+
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+
+sudo apt-get install containerd.io
+
+containerd config default | sed 's/SystemdCgroup = false/SystemdCgroup = true/' | sed 's/sandbox_image = "registry.k8s.io\/pause:3.6"/sandbox_image = "registry.k8s.io\/pause:3.9"/' | sudo tee /etc/containerd/config.toml
+
+sudo systemctl restart containerd
+sudo systemctl status containerd
+
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+
+##### run on master only ######3
+sudo kubeadm init --pod-network-cidr=10.200.0.0/16 --apiserver-advertise-address <master-node-private-ip>
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+kubectl get nodes -o wide # change internal-ip with node private ip (Don't if ip already there)
+
+kubeadm token create --print-join-command  # to create token to join worker nodes
+
+
+sudo vim /var/lib/kubelet/kubeadm-flags.env
+KUBELET_KUBEADM-ARGS="--node-ip=192.168.10.0 --container.." #######change on workers nodes too and save it
+
+sudo systemctl restart kubelet 
+kubectl get nodes -o wide
+####### CNI CONFIGURE 
+https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml ### download it and open file for change  cide of pod "Network": "10.200.0.0/16" 
+
+# then run kubectl apply -f kube-flannel.yml
+
+# ########## docker installation ##############3
+cmd$ sudo apt-get install docker-ce docker-ce-cli
+     sudo usermod -aG docker $USER
+     sudo chmod 777 /var/run/docker.sock
+     newgrp docker
+     docker --version
+
+# cmd to copy file from window
+scp -i "C:\Users\HP\Downloads\eu-ireland.pem" "C:\Users\HP\Downloads\kube-flannel.yml" ubuntu@18.201.54.32:~
+
+
+
+
+
+
+
+
+
+
